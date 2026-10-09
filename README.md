@@ -38,17 +38,24 @@ used by the previous implementation:
 
 ## Configuration
 
-Local configuration lives in a `.env` file, which is **not** committed.
+**You must create a `.env` before running the checks.** It is never committed —
+the database you point at is a local choice, and may carry credentials.
 [`example.env`](example.env) is the committed template documenting every supported
-variable — copy it and edit to taste:
+variable:
 
 ```bash
 cp example.env .env
 ```
 
-It configures the database connection used by
-[InLaw](https://pypi.org/project/inlaw/) / Great Expectations for the data validation
-tests, defaulting to a local DuckDB file at `data/pecos.duckdb`.
+The defaults work as-is, so no editing is needed unless you want to change the
+database. `inlaw` auto-discovers `.env` when run from the repository root.
+
+**DuckDB is the default, not a requirement.** The repo assumes it because it needs no
+server and keeps the pipeline reproducible from a single file. Nothing is locked to it:
+the pipeline writes through pandas and the checks query through SQLAlchemy, so any
+SQLAlchemy-supported database works — change `INLAW_URL` and the `write_to_duckdb()`
+function in `build_hierarchy.py`. InLaw imposes no database at all; a check can
+validate a pandas DataFrame in-process and ignore the connection entirely.
 
 ## Running the pipeline and tests
 
@@ -69,9 +76,14 @@ into one of five ownership categories and persists each pipeline stage to DuckDB
 
 The validation checks live in [`inlaw_tests/`](inlaw_tests/), **one
 [InLaw](https://pypi.org/project/inlaw/) / Great Expectations class per file** so that
-individual checks are easy to run. **Two of the twelve fail by design** on the current
-snapshot — they surface real characteristics of the CMS data rather than pipeline
-defects. See [`inlaw_tests/README.md`](inlaw_tests/README.md).
+individual checks are easy to run.
+
+Where a data problem is known and expected, the check is a **regression guard against a
+documented baseline** rather than an assertion of perfection — a check that fails every
+run just teaches people to ignore the suite. Role-34 over-ownership, for example,
+affects 2.18% of enrollments on the current snapshot, so that check fails only above
+3.18%. **One of the twelve fails by design**, flagging an unresolved design decision.
+See [`inlaw_tests/README.md`](inlaw_tests/README.md).
 
 ## Prior work
 

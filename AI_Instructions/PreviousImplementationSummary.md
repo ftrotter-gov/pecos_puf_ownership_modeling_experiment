@@ -527,7 +527,11 @@ the repository root runs one or more named check files via `InLaw.run_all(inlaw_
   `inlaw_tests/test_regex_terms_match_known_cases.py`. Decide whether to repair it.
 - **121 enrollments exceed 100% role-34 ownership** on the 2026.07.31 snapshot
   (maximum 300%), which is the §5 metric firing exactly as the Stata script predicted.
-  `inlaw_tests/test_direct_ownership_not_over_100.py` fails on this by design.
+  This is **2.18%** of the 5,547 enrollments carrying any role-34 row. Because the
+  problem is inherent to the data rather than to the pipeline,
+  `inlaw_tests/test_direct_ownership_not_over_100.py` is written as a regression guard:
+  it measures the rate and fails only above **3.18%** (baseline + 1 percentage point).
+  Whether to de-duplicate owner rows the way the Stata script did remains open.
 
 - **Data dictionaries not yet parsed.** The PDFs in `data_documentation/` have not been
   machine-read. Observed values are catalogued in §2.1, but the *meaning* of the

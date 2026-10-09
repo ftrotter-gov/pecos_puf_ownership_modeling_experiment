@@ -5,7 +5,7 @@ the companion for the one-class-per-file convention: it runs just the files you
 name, which is what you want while iterating on a single check.
 
 Usage:
-    python run_inlaw_test.py inlaw_tests/test_ccn_is_six_characters.py
+    python run_inlaw_test.py inlaw_tests/test_ccn_length_is_valid.py
     python run_inlaw_test.py inlaw_tests/test_a.py inlaw_tests/test_b.py
 
 Exit code is 0 only if every named check passed.

@@ -537,9 +537,14 @@ the repository root runs one or more named check files via `InLaw.run_all(inlaw_
   machine-read. Observed values are catalogued in §2.1, but the *meaning* of the
   non-34/35 role codes (`25`, `36`–`44`) and of `PROPRIETARY NONPROFIT = "D"` should be
   confirmed against the official dictionaries.
-- **Over-long CCNs are unhandled.** 77 rows have a CCN longer than 6 characters (§2.1)
-  and the R script neither pads nor rejects them. Decide the Python behavior
-  deliberately.
+- **Over-long CCNs are unhandled.** Valid CCN lengths are **6, 10, and 13** characters.
+  77 source rows (63 eligible hospitals, **1.05%**) fall outside that set at lengths 7,
+  8, and 9, and the R script neither pads nor rejects them. Each looks like a valid
+  6-character CCN with a suffix appended (`140010A`, `22007401`, `330027001`), so
+  truncation to 6 is plausible — but it must be a deliberate decision, and note the
+  special-unit exclusion reads position 3 of whatever value is present.
+  `inlaw_tests/test_ccn_length_is_valid.py` guards the rate at **2.05%**
+  (baseline + 1 percentage point) rather than asserting zero.
 - **Path change.** The R script's `/intake` becomes `data/` in the rewrite.
 - **No Python project scaffolding yet** — there is no `pyproject.toml` or
   `requirements.txt` in the repository.

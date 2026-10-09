@@ -1,0 +1,5 @@
+# Python 3.10-3.13. Great Expectations has a Pydantic v1 compatibility layer
+# that breaks on 3.14, so InLaw excludes it.
+inlaw[duckdb]>=0.2.0
+pandas>=2.0
+duckdb>=1.0

@@ -2,7 +2,7 @@
 
 **Summary: 12 passed · 0 failed · 0 errors**
 
-- Run at: 2026-10-09 13:04:40 EDT
+- Run at: 2026-10-09 14:53:08 EDT
 - Outcome: all checks passed
 
 ## Checks
@@ -17,7 +17,7 @@
 - ✅ **PASS** — Linked table row count matches the all-owners source row count
 - ✅ **PASS** — No special-unit CCN remains in hospital_flags
 - ✅ **PASS** — ORGANIZATION NAME agrees between enrollment and all-owners files
-- ✅ **PASS** — Each PERCENTAGE OWNERSHIP value is between 0 and 100
+- ✅ **PASS** — Single-row check: PERCENTAGE OWNERSHIP on one owner row is between 0 and 100 (this does NOT sum rows per enrollment)
 - ✅ **PASS** — Classification regexes match their documented cases, misspellings included
 
 ---

@@ -1,4 +1,4 @@
-"""Any individual ownership percentage sits between 0 and 100.
+"""Each single owner ROW's ownership percentage sits between 0 and 100.
 
 Spec: AI_Instructions/PreviousImplementationSummary.md section 5.
 
@@ -11,7 +11,10 @@ from inlaw import DBTable, InLaw
 
 
 class TestOwnershipPercentageInRange(InLaw):
-    title = "Each PERCENTAGE OWNERSHIP value is between 0 and 100"
+    title = (
+        "Single-row check: PERCENTAGE OWNERSHIP on one owner row is between "
+        "0 and 100 (this does NOT sum rows per enrollment)"
+    )
 
     @staticmethod
     def run(engine, settings=None):
@@ -32,6 +35,9 @@ class TestOwnershipPercentageInRange(InLaw):
             return True
 
         return (
-            "At least one PERCENTAGE OWNERSHIP value is negative or above 100, "
-            "which is impossible for a single ownership stake."
+            "At least one individual owner ROW has a PERCENTAGE OWNERSHIP that is "
+            "negative or above 100. This is a per-row check: a single ownership "
+            "stake on its own cannot exceed 100%. It is NOT the per-enrollment sum "
+            "check (see test_direct_ownership_not_over_100.py for that), so this "
+            "failure means the raw value in that one row is malformed."
         )

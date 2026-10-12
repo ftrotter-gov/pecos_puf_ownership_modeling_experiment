@@ -11,4 +11,6 @@ But it is experiment, so dont expect much.
 | Role   | Name    | Affiliation    |
 | :----- | :------ | :------------- |
 | Reimplementer| Fred Trotter | CMS|
+| Initial Approach | Welch, Pete | HHS/ASPE|
+| Initial Approach | Blanco, Martin | HHS/ASPE|
 

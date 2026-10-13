@@ -1,0 +1,49 @@
+# This branch holds ONLY the built Evidence site. publish_reports.py rebuilds
+# it as a single orphan commit on every publish, so anything committed here
+# by hand is discarded on the next run. Work on main instead.
+#
+# These rules exist because checking out this branch leaves the untracked
+# source tree on disk. Without them `git add -A` pulls in node_modules --
+# 732 MB, including a 105 MB libduckdb.dylib that exceeds GitHub's file size
+# limit -- and the push fails.
+
+# Evidence project source and its dependencies
+reports/
+node_modules/
+
+# Pipeline inputs.
+#
+# NOTE: data/ itself is NOT ignored. The built site keeps its parquet files in
+# data/, and without them every query on the published site returns nothing.
+# Only the raw CMS source formats are excluded, so a leftover data/*.csv from
+# the source checkout cannot be published while data/**/*.parquet still is.
+data/*.csv
+patched_data/
+*.duckdb
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.py
+inlaw_tests/
+inlaw_tests_results_by_day/
+
+# Repository source, present only as checkout leftovers
+AI_Instructions/
+data_documentation/
+previous_implementation/
+.github/
+Makefile
+*.md
+.env
+example.env
+LICENSE
+COMMUNITY.md
+repolinter.json
+
+# Publish worktree
+.gh_reports/
+
+# OS
+.DS_Store

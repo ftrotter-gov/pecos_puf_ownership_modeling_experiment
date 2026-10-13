@@ -3,3 +3,12 @@
 inlaw[duckdb]>=0.2.0
 pandas>=2.0
 duckdb>=1.0
+
+# Ownership graph resolution in build_ownership_graph.py. The traversal is
+# igraph's decompose()/subcomponent(), which run in C and need no recursion
+# guard, rather than a hand-rolled recursive CTE.
+python-igraph>=0.11
+
+# Reads data_patches/owner_name_patch.yaml in apply_data_patch.py. The
+# corrections are declarative data, so they live in YAML rather than code.
+PyYAML>=6.0

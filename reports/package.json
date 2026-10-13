@@ -1,0 +1,44 @@
+{
+  "name": "pecos-ownership-reports",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Evidence.dev reports over the PECOS ownership DuckDB database. Built locally, published to GitHub Pages.",
+  "scripts": {
+    "sources": "evidence sources",
+    "dev": "evidence dev",
+    "build": "evidence build",
+    "preview": "evidence preview"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "^5.4.2",
+    "@evidence-dev/duckdb": "^2.0.1",
+    "@evidence-dev/evidence": "^40.1.8"
+  },
+  "//devDependencies": [
+    "@evidence-dev/evidence declares these as PEER dependencies with exact",
+    "pinned versions, and npm will not install them automatically. Without",
+    "them `npm install` fails on an ERESOLVE conflict between svelte2tsx and",
+    "typescript. Versions are pinned to match the peerDependencies of",
+    "@evidence-dev/evidence 40.1.8 exactly -- do not loosen them to ranges."
+  ],
+  "devDependencies": {
+    "@evidence-dev/component-utilities": "^4.0.13",
+    "@evidence-dev/tailwind": "^3.1.4",
+    "autoprefixer": "^10.4.7",
+    "debounce": "^1.2.1",
+    "git-remote-origin-url": "4.0.0",
+    "postcss": "^8.4.14",
+    "postcss-load-config": "^4.0.1",
+    "svelte": "4.2.19",
+    "svelte-preprocess": "5.1.3",
+    "svelte2tsx": "0.7.4",
+    "tailwindcss": "3.4.18",
+    "typescript": "5.4.2",
+    "unist-util-visit": "4.1.2",
+    "vite": "5.4.21"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

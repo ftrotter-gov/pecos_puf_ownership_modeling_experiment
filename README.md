@@ -113,15 +113,138 @@ pip install -r requirements.txt     # Python 3.10-3.13
 cp example.env .env
 
 python build_hierarchy.py           # writes data/pecos.duckdb
+python build_ownership_graph.py     # resolves ultimate ownership
 inlaw inlaw_tests                   # runs the validation checks
 
 python run_inlaw_test.py inlaw_tests/test_ccn_length_is_valid.py   # just one
 python save_inlaw_results.py        # run all + save a dated markdown report
 ```
 
+Or `make all`, which runs the whole chain through to a built report site.
+
 `build_hierarchy.py` is the Python/pandas reimplementation of
 `previous_implementation/hirearchy_R.R`. It classifies every eligible hospital CCN
 into one of five ownership categories and persists each pipeline stage to DuckDB.
+
+## Ultimate ownership
+
+`build_ownership_graph.py` answers "who ultimately owns this hospital" by
+walking upward from each enrolled organization through every intermediate
+holding company until it reaches an entity nothing else owns. It adds three
+tables to `data/pecos.duckdb`: `ownership_edges`, `ultimate_owner_by_org`, and
+`ultimate_owner_summary`.
+
+On the 2026.07.31 snapshot: **5,276** provider organizations resolve to
+**2,246** ultimate owners, and **1,623** organizations are joint ventures —
+owned by more than one ultimate owner, and so counted under each.
+
+**The resolution uses [igraph](https://python.igraph.org/).** Edges point
+org → owner, so walking *out* walks upward, an ultimate owner is a vertex with
+out-degree 0, and everything above a hospital is one `subcomponent()` call.
+`decompose()` splits the graph into **563** independent ownership families,
+the largest covering 2,903 organizations.
+
+**The filtered ownership graph is acyclic** — igraph's strongly connected
+component decomposition finds no component larger than a single vertex, and
+`is_dag()` returns true. This is worth stating because the *raw* file is not
+acyclic: it holds **1,106** self-ownership rows and **1,108** reciprocal
+edge-ends (A owns B, B owns A). All of them vanish once the edges are
+restricted to organizational ownership roles 34/35 with self-loops removed —
+the cycles live in the officer and managing-employee rows, which are not
+ownership. The deepest real chain is only 2 hops.
+
+The code does not *assume* acyclicity: `is_dag()` is checked on every build and
+a warning is printed if a future snapshot introduces a real cycle. The
+traversal terminates either way, because `subcomponent()` visits each vertex
+once instead of walking paths.
+
+Only organization-to-organization ownership (`TYPE - OWNER = 'O'`, role codes
+34 and 35) forms the chain. Individuals — physician owners, board members,
+managing employees — are excluded from the hierarchy.
+
+Organizations with no organizational owner at all (government bodies,
+nonprofits, individually held hospitals) are their own ultimate owner at depth
+0, so every provider organization appears rather than silently dropping out.
+
+> **Scope limit:** this is the Hospital public-use file only. Hospices, SNFs,
+> and home health agencies are published separately by CMS and are **not**
+> counted, so the figures describe an owner's hospital footprint, not its
+> total healthcare footprint.
+
+### Owner de-duplication: the data patch
+
+CMS identifies an owner by *enrollment ID*, not by company, and one real
+company holds many. Left alone, a corporate family is reported as several
+separate "ultimate owners" — HCA appeared five times, and 89 hospitals listed
+all five at once.
+
+This is fixed **in the data, before the ETL**, by
+[`patched_data/owner_name_patch.yaml`](patched_data/owner_name_patch.yaml).
+That directory is the single place where data-content problems get corrected,
+and **both the patch rules and the corrected CSVs they produce are version
+controlled** — so the effect of any rule change is visible in a diff without
+downloading the 26 MB CMS source files. The raw downloads in `data/` stay
+gitignored. See [`patched_data/README.md`](patched_data/README.md).
+
+**Measured effect on the 2026.07.31 snapshot:**
+
+| | Before | After |
+| :--- | ---: | ---: |
+| Distinct ultimate owners | 4,610 | **4,523** |
+| Published owners (excl. self-owned) | 2,246 | **2,167** |
+| Joint ventures | 1,623 | **1,544** |
+| Owner/org pairs | 11,812 | **10,267** |
+| Ownership edges | 10,566 | **8,894** |
+| Exact-duplicate name rate | 3.45% | **2.28%** |
+
+HCA's five fragments became one row — **117 orgs / 218 hospitals**, matching
+the union computed independently. 116 duplicate owner IDs were merged across
+3,864 rows; hospital classification was untouched, exactly as intended.
+
+**What the patch deliberately does *not* do:**
+
+- **It does not merge by corporate form.** `TRIAD HEALTHCARE CORPORATION` and
+  `TRIAD HEALTHCARE LLC` stay separate — Inc and LLC are distinct legal
+  entities, and merging them would assert a fact not in evidence. This is most
+  of the residual 2.28%.
+- **It does not cluster automatically.** Co-ownership clustering was built,
+  measured, and rejected: at a 2-hospital threshold it fused **Tenet,
+  LifePoint, CommonSpirit, CHI and Texas Health Resources** into one
+  113-member "company" by chaining through genuine joint ventures. Families
+  are listed by hand with evidence instead.
+- **It does not delete passive investors.** Vanguard and BlackRock still rank
+  near the top on 5–10% *indirect* stakes. They are flagged, not removed —
+  deleting disclosed ownership would falsify the data.
+
+**`is_JV` is still approximate.** It means "more than one ultimate owner", so
+any remaining fragmentation still manufactures false joint ventures.
+
+Full analysis: [`AI_Instructions/EntityResolutionProblem.md`](AI_Instructions/EntityResolutionProblem.md).
+
+### A note on ownership depth
+
+Maximum depth is 2, which understates real corporate structure. PECOS records
+direct (34) and indirect (35) parties as a **flat list** per hospital rather
+than as a parent-of-parent chain, so five levels of one hierarchy arrive as
+five siblings at depth 1. Depth here measures *how CMS recorded the structure*,
+not how deep it actually goes.
+
+## Reports
+
+The [`reports/`](reports/) directory holds an [Evidence](https://evidence.dev)
+site that publishes the ultimate-owner report to GitHub Pages. It builds
+**locally** — there is no CI — and is pushed with `make publish`.
+
+```bash
+make install    # once
+make all        # data -> graph -> test -> sources -> site
+make serve      # preview at localhost:3000
+make publish    # push to GitHub Pages
+```
+
+See [`reports/README.md`](reports/README.md), which documents the two
+configuration details that silently break a Pages deploy if missed
+(`.nojekyll` and `deployment.basePath`).
 
 The validation checks live in [`inlaw_tests/`](inlaw_tests/), **one
 [InLaw](https://pypi.org/project/inlaw/) / Great Expectations class per file** so that
@@ -136,7 +259,7 @@ current snapshot:
 - Malformed CCN lengths affect **1.05%** of hospitals → fails above **2.05%**
   (see [About CCNs](#about-ccns))
 
-**All twelve currently pass**, so a failure means something actually changed. See
+**All nineteen currently pass**, so a failure means something actually changed. See
 [`inlaw_tests/README.md`](inlaw_tests/README.md).
 
 ### Recording results over time

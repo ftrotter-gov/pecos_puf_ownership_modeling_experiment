@@ -20,10 +20,26 @@ import duckdb
 import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+
+# Patched copies of the CMS files, produced by apply_data_patch.py. Version
+# controlled, unlike data/ -- see patched_data/README.md.
+PATCHED_DATA_DIR = Path(__file__).resolve().parent / "patched_data"
+
 DUCKDB_PATH = DATA_DIR / "pecos.duckdb"
 
 DEFAULT_ENROLLMENT_FILE = "Hospital_Enrollments_2026.07.31.csv"
-DEFAULT_ALLOWNERS_FILE = "Hospital_All_Owners_2026.07.31_update.csv"
+
+# The PATCHED owners file is the default input, not the raw CMS download.
+#
+# CMS publishes owner names as-reported, so one company appears under several
+# spellings and several enrollment IDs. patched_data/owner_name_patch.yaml
+# corrects that, and apply_data_patch.py writes this file. Run `make patch`
+# (or `make all`) to regenerate it.
+#
+# To analyse the unpatched data instead, pass the raw filename explicitly:
+#     python build_hierarchy.py Hospital_Enrollments_2026.07.31.csv \
+#         Hospital_All_Owners_2026.07.31_update.csv
+DEFAULT_ALLOWNERS_FILE = "Hospital_All_Owners_2026.07.31_update.patched.csv"
 
 # CMS ships these files Windows-1252 encoded, not UTF-8.
 SOURCE_ENCODING = "cp1252"
@@ -113,6 +129,32 @@ def strip_leading_zeros(series: pd.Series) -> pd.Series:
     )
 
 
+def resolve_input(filename: str) -> Path:
+    """Find a source file in patched_data/ or data/.
+
+    Patched files are checked first so a patched name resolves even though the
+    raw downloads live elsewhere. Passing an absolute path bypasses both.
+    """
+    candidate = Path(filename)
+    if candidate.is_absolute():
+        return candidate
+
+    for directory in (PATCHED_DATA_DIR, DATA_DIR):
+        path = directory / filename
+        if path.exists():
+            return path
+
+    # Nothing found: point at the conventional location so the error names the
+    # directory the user most likely meant.
+    hint = PATCHED_DATA_DIR if ".patched." in filename else DATA_DIR
+    raise FileNotFoundError(
+        f"{filename} not found in {PATCHED_DATA_DIR.name}/ or {DATA_DIR.name}/. "
+        f"Expected it at {hint / filename}. "
+        f"If it is a patched file, run 'make patch' first; if it is a raw CMS "
+        f"download, see data/README.md."
+    )
+
+
 def load_source_files(
     enrollment_file: str, allowners_file: str
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -125,10 +167,10 @@ def load_source_files(
     }
 
     hospital_enrollments = pd.read_csv(
-        DATA_DIR / enrollment_file, usecols=ENROLLMENT_COLUMNS, **read_options
+        resolve_input(enrollment_file), usecols=ENROLLMENT_COLUMNS, **read_options
     )
     hospital_allowners = pd.read_csv(
-        DATA_DIR / allowners_file, usecols=ALLOWNERS_COLUMNS, **read_options
+        resolve_input(allowners_file), usecols=ALLOWNERS_COLUMNS, **read_options
     )
 
     return hospital_enrollments, hospital_allowners

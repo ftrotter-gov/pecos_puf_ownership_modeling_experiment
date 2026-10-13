@@ -1,0 +1,14 @@
+# DuckDB connection to the pipeline database.
+#
+# The path is relative to this file, resolving to data/pecos.duckdb at the
+# repository root -- the same file build_hierarchy.py and
+# build_ownership_graph.py write, and the same one the InLaw checks read.
+#
+# This file is READ ONLY at `npm run sources` time. The 17 MB database itself
+# is never published: `evidence sources` extracts the query results in
+# sources/pecos/*.sql into small parquet files under static/data, and only
+# those are deployed.
+name: pecos
+type: duckdb
+options:
+  filename: ../../../data/pecos.duckdb

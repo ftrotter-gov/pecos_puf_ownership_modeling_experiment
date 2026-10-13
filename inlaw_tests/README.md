@@ -12,7 +12,7 @@ what makes individual checks easy to run and easy to find from a failure message
 Only pair two classes in one file if they are so tightly coupled that reading one
 without the other is confusing — and prefer splitting even then.
 
-Current state: **12 files, 12 classes.**
+Current state: **19 files, 19 classes.**
 
 ## Running them
 
@@ -57,6 +57,36 @@ once without tripping DuckDB's single-writer lock.
 | `test_ownership_percentage_in_range.py` | Each individual ownership percentage is within 0–100 | §5 |
 | `test_regex_terms_match_known_cases.py` | The three classification regexes still match their documented cases | §3.3 |
 
+### Ultimate ownership
+
+These four cover `build_ownership_graph.py` rather than `build_hierarchy.py`,
+and are specified by
+[`../AI_Instructions/UltimateOwnerReport.md`](../AI_Instructions/UltimateOwnerReport.md).
+
+| File | Asserts |
+| :--- | :------ |
+| `test_ownership_edges_no_self_loops.py` | The 1,106 self-owning rows are dropped from the edge list |
+| `test_ultimate_owner_is_terminal.py` | No ultimate owner is itself owned by something else |
+| `test_ultimate_owner_covers_enrolled_orgs.py` | Every enrolled org is covered, and nothing that is not an enrolled org |
+| `test_jv_flag_consistency.py` | `is_JV` is `Yes` exactly when an org has more than one ultimate owner |
+| `test_ownership_graph_is_acyclic.py` | No two organizations own each other, so `ownership_depth` stays meaningful |
+| `test_owner_duplicate_rate.py` | Exact-duplicate owner names stay within 1 point of the 2.28% post-patch baseline |
+| `test_data_patch_was_applied.py` | No owner ID merged away by `patched_data/` survives as an owner |
+
+The first five assert zero rather than guarding a baseline: they check pipeline
+logic, not defects inherited from CMS. Two caught real bugs during
+development — intermediate holding companies being counted as provider
+organizations, and hospitals resolving to themselves through self-ownership.
+
+`test_owner_duplicate_rate.py` is the exception, and is a **regression guard**
+in the same style as the CCN and role-34 checks. Owner de-duplication is not
+implemented at all, so asserting zero would fail permanently; the check pins
+the known **3.45%** exact-duplicate rate instead. See
+[`../AI_Instructions/EntityResolutionProblem.md`](../AI_Instructions/EntityResolutionProblem.md)
+— the string-level duplication it measures is the *smaller* half of the
+problem, with corporate-family splits (HCA INC / HEALTHTRUST / HERCULES)
+invisible to string matching.
+
 ## Known data problems and how they are handled
 
 Some defects are inherent to the CMS data, not to the pipeline. A check that
@@ -95,7 +125,7 @@ Whether to truncate or reject them is the open decision in §7; the pipeline
 currently passes them through untouched, which means `substr(CCN, 3, 1)` still
 reads position 3 for the special-unit exclusion.
 
-**The whole suite currently passes** (12 of 12), including the regex check that
+**The whole suite currently passes** (19 of 19), including the regex check that
 pins the deliberate CMS misspellings (`GOVERMENT`, `GOVENMENTAL`, `GOVERNEMNT`,
 `DIVISON`). A failure now means something actually changed.
 

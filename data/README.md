@@ -1,8 +1,16 @@
-# `data/` — local data files (not committed)
+# `data/` — raw CMS downloads (not committed)
 
 Everything in this directory except this README is ignored by git (see `.gitignore`:
 `data/*` plus a `!data/README.md` exception). The CSVs are public CMS downloads, but
 they are large and re-downloadable, so they are not tracked in the repository.
+
+> **Corrected copies live in [`../patched_data/`](../patched_data/), and those
+> *are* version controlled.** CMS publishes these files as-reported, so the same
+> company appears under several names and enrollment IDs.
+> `apply_data_patch.py` reads the raw file from here, applies
+> `patched_data/owner_name_patch.yaml`, and writes a `.patched.csv` into
+> `patched_data/`. **The ETL consumes the patched file by default.** See
+> [`../patched_data/README.md`](../patched_data/README.md).
 
 ## Where these files come from
 

@@ -1,0 +1,26 @@
+# Evidence project configuration.
+#
+# BASE PATH -- REQUIRED FOR GITHUB PAGES.
+#
+# GitHub Pages serves this repository from a subdirectory, not from the root
+# of the domain:
+#
+#     https://ftrotter-gov.github.io/pecos_puf_ownership_modeling_experiment/
+#
+# Without basePath every asset, route, and parquet file resolves to the domain
+# root and 404s. The page loads and then stays blank.
+#
+# If you fork this repository under a different name, or publish to a custom
+# domain served from the root, change or remove this value to match.
+deployment:
+  basePath: /pecos_puf_ownership_modeling_experiment
+
+title: PECOS Ownership Reports
+
+# Evidence requires this block explicitly. `datasources` lists the connector
+# packages available to sources/*/connection.yaml -- only DuckDB is used here.
+plugins:
+  components:
+    '@evidence-dev/core-components': {}
+  datasources:
+    '@evidence-dev/duckdb': {}

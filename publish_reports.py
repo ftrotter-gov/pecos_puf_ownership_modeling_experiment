@@ -55,6 +55,72 @@ WORKTREE_DIR = REPO_ROOT / ".gh_reports"
 BRANCH = "gh_reports_branch"
 REMOTE = "origin"
 
+# A .gitignore committed ONTO the published branch.
+#
+# The branch holds only the built site, but checking it out does not remove
+# the untracked source tree sitting in the working directory -- reports/,
+# node_modules/, data/, .venv/ and the rest all stay on disk. With no
+# .gitignore on this branch, git stops ignoring them, so the branch LOOKS
+# full of source even though it tracks 131 build files.
+#
+# Worse, `git add -A` on that checkout sweeps in reports/node_modules/ (732 MB,
+# including a 105 MB libduckdb.dylib) and produces a commit that can never be
+# pushed, because GitHub rejects files over 100 MB.
+#
+# This file makes the branch report itself as clean. It is the only
+# hand-written file on the branch; everything else is build output.
+BRANCH_GITIGNORE = """\
+# This branch holds ONLY the built Evidence site. publish_reports.py rebuilds
+# it as a single orphan commit on every publish, so anything committed here
+# by hand is discarded on the next run. Work on main instead.
+#
+# These rules exist because checking out this branch leaves the untracked
+# source tree on disk. Without them `git add -A` pulls in node_modules --
+# 732 MB, including a 105 MB libduckdb.dylib that exceeds GitHub's file size
+# limit -- and the push fails.
+
+# Evidence project source and its dependencies
+reports/
+node_modules/
+
+# Pipeline inputs.
+#
+# NOTE: data/ itself is NOT ignored. The built site keeps its parquet files in
+# data/, and without them every query on the published site returns nothing.
+# Only the raw CMS source formats are excluded, so a leftover data/*.csv from
+# the source checkout cannot be published while data/**/*.parquet still is.
+data/*.csv
+patched_data/
+*.duckdb
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.py
+inlaw_tests/
+inlaw_tests_results_by_day/
+
+# Repository source, present only as checkout leftovers
+AI_Instructions/
+data_documentation/
+previous_implementation/
+.github/
+Makefile
+*.md
+.env
+example.env
+LICENSE
+COMMUNITY.md
+repolinter.json
+
+# Publish worktree
+.gh_reports/
+
+# OS
+.DS_Store
+"""
+
 
 class PublishError(Exception):
     """A step failed in a way the operator needs to read and act on."""
@@ -173,10 +239,81 @@ def copy_site() -> None:
     print("==> Writing .nojekyll")
     (WORKTREE_DIR / ".nojekyll").touch()
 
+    # Makes the branch report itself as clean when checked out, and stops
+    # `git add -A` from sweeping in node_modules. See BRANCH_GITIGNORE.
+    print("==> Writing .gitignore")
+    (WORKTREE_DIR / ".gitignore").write_text(BRANCH_GITIGNORE, encoding="utf-8")
+
+
+def verify_staged_tree() -> None:
+    """Refuse to publish source files or anything GitHub will reject.
+
+    The branch must contain the built site and nothing else. Two specific
+    failures have happened and are checked for explicitly:
+
+      * node_modules / reports/ sweeping in from the untracked source tree
+      * a file over GitHub's 100 MB limit, which makes the push fail after
+        the commit already exists
+    """
+    staged = git_output("diff", "--cached", "--name-only", cwd=WORKTREE_DIR)
+    paths = [line for line in staged.splitlines() if line.strip()]
+
+    # data/ is deliberately absent from this list: the built site stores its
+    # parquet files there and they must be published.
+    forbidden = [
+        path
+        for path in paths
+        if path.startswith(("reports/", "patched_data/", "inlaw_tests/"))
+        or "node_modules/" in path
+        or path.endswith((".py", ".duckdb", ".csv"))
+    ]
+    if forbidden:
+        raise PublishError(
+            f"{len(forbidden)} source file(s) staged for the published branch, "
+            f"e.g. {forbidden[:3]}. Only the built site belongs here -- check "
+            f"BRANCH_GITIGNORE and that reports/build/ is what you think."
+        )
+
+    # The site is useless without its data. An over-broad ignore rule once
+    # excluded data/**/*.parquet, producing a site that loaded and then showed
+    # empty tables -- a failure with no error message anywhere.
+    required = {
+        "index.html": any(path == "index.html" for path in paths),
+        ".nojekyll": any(path == ".nojekyll" for path in paths),
+        "parquet data": any(path.endswith(".parquet") for path in paths),
+        "data manifest": any(path.endswith("manifest.json") for path in paths),
+    }
+    missing = [name for name, present in required.items() if not present]
+    if missing:
+        raise PublishError(
+            f"The staged site is missing: {', '.join(missing)}. Publishing it "
+            f"would produce a site that loads but shows no data. Check "
+            f"BRANCH_GITIGNORE is not excluding build output, and that "
+            f"'make sources && make site' ran."
+        )
+
+    # GitHub hard-rejects blobs over 100 MB. Catch it before the push.
+    limit_bytes = 100 * 1024 * 1024
+    oversized = [
+        (path, (WORKTREE_DIR / path).stat().st_size)
+        for path in paths
+        if (WORKTREE_DIR / path).is_file()
+        and (WORKTREE_DIR / path).stat().st_size > limit_bytes
+    ]
+    if oversized:
+        listing = ", ".join(
+            f"{path} ({size / 1048576:.0f} MB)" for path, size in oversized
+        )
+        raise PublishError(
+            f"File(s) over GitHub's 100 MB limit staged: {listing}. "
+            f"The push would be rejected."
+        )
+
 
 def commit_site() -> str:
     """Stage and commit everything. Returns the commit message."""
     git("add", "--all", cwd=WORKTREE_DIR, quiet=True)
+    verify_staged_tree()
 
     source_commit = git_output("rev-parse", "--short", "HEAD")
     source_branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
